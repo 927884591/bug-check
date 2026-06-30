@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bug Check"
+  short_description: "Bug fix edge-case checklist"
+  default_prompt: "Use $bug-check to debug a frontend bug and verify the relevant edge cases."
