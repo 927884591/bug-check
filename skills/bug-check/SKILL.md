@@ -1,31 +1,34 @@
 ---
 name: bug-check
-description: Use when fixing, debugging, reviewing, or validating frontend/product bugs, especially defects involving state refresh, forms, lists, search/filter/pagination, async tasks, permissions, realtime/video/map flows, routing, cache, tenants, accessibility, performance, layout, API parameters, security, or repeated bug reactivation. Guides an AI coding agent to inspect code paths, classify root causes, load the bug-check matrix, verify edge cases, and report root cause, changes, verification, and residual risk.
+description: Use when fixing, debugging, reviewing, or validating software bugs, especially defects involving UI state, APIs, databases, caches, queues, background jobs, auth, permissions, concurrency, integrations, deployments, performance, security, or repeated bug reactivation.
 ---
 
 # Bug Check
 
-## Operating Rule
+## Purpose
 
-Use this skill for bug fixing, debugging, code review, and bug validation. Do not use it for unrelated feature ideation, formatting, one-off shell commands, or purely explanatory work.
+After code changes, use the changed file range to find relevant bug-boundary knowledge, compare those boundaries against the current code, and fix any missing handling.
 
-When this skill triggers, read `references/bug-check.md` before editing code or claiming completion. Treat the reference as a checklist for missed edge cases, not as a replacement for reading the current code and reproducing the real path.
+Do not turn this into a separate report-writing step. The useful output is the next engineering action: patch missing handling, run targeted verification, or say no relevant boundary gap was found.
 
 ## Workflow
 
-1. Reproduce or trace the real bug path. Do not infer the fix from the title or screenshot alone.
-2. Read the relevant page/component, state store or query cache, API call, and existing tests.
-3. Classify the root cause with the bug-check categories in `references/bug-check.md`.
-4. Fix the root cause with the smallest change that preserves existing conventions.
-5. Verify the original path and the relevant boundary cases from the reference.
-6. Run available lint, typecheck, tests, build, and UI checks that match the risk.
-7. Report root cause, changed behavior/files, original-path verification, boundary cases verified, executed checks, and remaining unverified risks.
+1. Decide if the changed scope can create a bug boundary: state, UI list/form behavior, API contract, auth, cache, tenant scope, database write, queue/job, config/deploy, security, or user-visible behavior.
+2. Get the changed files from the current diff, staged diff, or user-provided paths. If useful, run `scripts/build-bug-context.py` to route those paths.
+3. Read `references/routing.md`, then only the matched cards in `references/boundaries/`.
+4. For each matched card, inspect the changed code and mark it mentally as:
+   - `missing -> fix`: relevant boundary is not handled.
+   - `covered`: code already handles it.
+   - `not relevant`: route matched, but evidence shows the boundary does not apply.
+5. If anything is missing, patch it before finishing the original task.
+6. Verify the original path and the fixed boundary with the narrowest useful command or runtime check.
+7. Answer briefly with what was missing, what was covered, what was verified, and any remaining risk. Use `references/completion-contract.md` only if the user explicitly asks for a formal report or a checker-ready final report.
 
-## Resource Routing
+## Resources
 
-- Load `references/bug-check.md` for the full bug-check matrix and completion contract.
-- Use `scripts/check-bug-report.py` only when a deterministic check of a final bug-fix report is useful. It reads a report from a file or stdin and verifies that the required completion sections are present.
-
-## Completion Standard
-
-Do not mark a bug as fixed if the original path was not verified or if relevant boundary cases were skipped without saying so. Passing lint or a narrow precheck is supporting evidence, not proof of bug closure.
+- `scripts/build-bug-context.py`: routes changed files and bug text to relevant boundary cards.
+- `references/routing.md`: manual route map.
+- `references/boundaries/`: bug-boundary knowledge cards.
+- `references/boundary-card-format.md`: format for adding a new boundary card.
+- `references/completion-contract.md`: optional formal report contract for explicit audits.
+- `scripts/check-bug-report.py`: optional checker for formal reports.

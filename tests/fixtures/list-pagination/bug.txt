@@ -1,0 +1,1 @@
+Filter reset leaves page 3 empty after deleting the last filtered result.

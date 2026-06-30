@@ -1,4 +1,4 @@
 interface:
   display_name: "Bug Check"
-  short_description: "Bug fix edge-case checklist"
-  default_prompt: "Use $bug-check to debug a frontend bug and verify the relevant edge cases."
+  short_description: "Check changed code for bug boundaries"
+  default_prompt: "Use $bug-check to check this changed scope against relevant bug boundaries and fix any missing handling."
