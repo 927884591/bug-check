@@ -4,6 +4,11 @@
 - Changed files include env files, configuration, feature flags, deployment scripts, Docker, compose, Kubernetes, Helm, CI, startup, health checks, migrations, or compatibility code.
 - Bug text mentions deploy, staging, production, env var, config, secret, feature flag, rollout, startup, health check, rollback, version skew, or compatibility.
 
+## Do Not Select When
+- The change only edits application behavior under an already-loaded config and no env, flag, startup, deploy, or compatibility path changes.
+- Config-like words appear in comments, tests, or local examples that are not consumed at runtime.
+- The risk is a secret or sensitive value leak rather than configuration loading; use security-sensitive-data instead.
+
 ## Inspect
 - Local, test, staging, production, and CI config differences.
 - Required env vars, defaults, secrets, base URLs, regions, time zones, and feature flags.

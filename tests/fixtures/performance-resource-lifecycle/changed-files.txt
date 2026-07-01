@@ -1,0 +1,2 @@
+src/components/ActivityChart.tsx
+src/hooks/useResizeObserver.ts

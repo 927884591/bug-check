@@ -4,6 +4,11 @@
 - Changed files include forms, dialogs, drawers, validators, schemas, field components, or submit handlers.
 - Bug text mentions validation, required fields, duplicate save, disabled fields, hidden fields, max length, special characters, backend error, or stuck submit state.
 
+## Do Not Select When
+- The changed UI is read-only and has no editable fields, submit action, validation schema, or mutation payload.
+- The form-like component is only a search/filter panel whose failure mechanism is pagination or list state; use ui-list-table instead.
+- The backend contract changed but no client field behavior, validation, disabled state, or submit lifecycle changed; use api-contract instead.
+
 ## Inspect
 - Field schema, visibility rules, default values, normalization, and dependent fields.
 - Submit button disabled/loading/error behavior.

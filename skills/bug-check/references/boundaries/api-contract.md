@@ -4,6 +4,11 @@
 - Changed files include API clients, controllers, routes, services, DTOs, request wrappers, validation schemas, generated clients, or OpenAPI/spec files.
 - Bug text mentions status codes, request params, response shape, serialization, missing fields, null values, enum values, auth headers, or third-party integration.
 
+## Do Not Select When
+- The touched API file only changes comments, labels, tests, or type-only aliases with no request, response, status, serialization, or validation behavior.
+- The bug is entirely inside one side of the boundary and no caller/handler/schema contract can observe the change.
+- A more specific card covers the actual mechanism, such as auth-permission for access decisions or file-transfer-export for file payload behavior.
+
 ## Inspect
 - Method, path, route params, query params, headers, body shape, content type, and auth context.
 - Frontend/client types, API validation schemas, service DTOs, generated clients, and tests.

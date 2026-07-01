@@ -4,6 +4,11 @@
 - Changed files include login, logout, session, middleware, guards, permission checks, roles, menus, protected routes, or auth headers.
 - Bug text mentions 401, 403, unauthorized, forbidden, no permission, expired session, password expired, role, token, or direct route access.
 
+## Do Not Select When
+- The change only affects unauthenticated public content with no session, role, token, guard, or object-level access behavior.
+- Permission words appear only in user-facing copy and no route, API, menu, button, or server-side authorization path changes.
+- The failure is pure tenant scoping after authorization has already succeeded; use tenant-isolation instead.
+
 ## Inspect
 - Login/logout/session-expired/password-expired/no-permission state machine.
 - Route guards, API guards, object-level authorization, and middleware order.

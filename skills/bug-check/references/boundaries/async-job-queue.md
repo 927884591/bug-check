@@ -4,6 +4,11 @@
 - Changed files include jobs, queues, workers, schedulers, cron, webhooks, retries, background tasks, exports/imports, uploads/downloads, or long-running processing.
 - Bug text mentions worker, job, queue, retry, timeout, cancel, duplicate, idempotent, dead letter, scheduler, cron, webhook, out of order, deploy restart, or stale callback.
 
+## Do Not Select When
+- The changed code runs synchronously in the request/UI path and does not enqueue, schedule, retry, receive webhooks, or continue after the caller returns.
+- The only async behavior is a client-side request race; use client-async-race or state-cache-sync instead.
+- The change only edits worker documentation, naming, or tests without altering payloads, retries, status, or side effects.
+
 ## Inspect
 - Enqueue path, payload schema, idempotency key, deduplication, retry policy, timeout, cancellation, and dead-letter behavior.
 - Worker database writes, transaction boundaries, partial failure, and cleanup.

@@ -13,7 +13,7 @@ REQUIRED_SECTIONS: list[tuple[str, re.Pattern[str]]] = [
     ("root cause", re.compile(r"^\s*(root cause|根因|根源|原因)\s*:", re.IGNORECASE | re.MULTILINE)),
     ("changed files", re.compile(r"^\s*(changed files|files changed|files|改动文件|修改文件)\s*:", re.IGNORECASE | re.MULTILINE)),
     ("context pack source", re.compile(r"^\s*(context pack source|context source|上下文来源|上下文包来源)\s*:", re.IGNORECASE | re.MULTILINE)),
-    ("matched boundary cases", re.compile(r"^\s*(matched boundary cases|matched boundaries|boundary cases|命中的边界|边界情况)\s*:", re.IGNORECASE | re.MULTILINE)),
+    ("matched boundary cases", re.compile(r"^\s*(matched boundary cases|matched boundaries|selected boundary cases|selected boundaries|ai-selected boundary cases|boundary cases|命中的边界|已选边界|边界情况)\s*:", re.IGNORECASE | re.MULTILINE)),
     ("boundary handling table", re.compile(r"^\s*(boundary handling table|边界处理表)\s*:", re.IGNORECASE | re.MULTILINE)),
     ("original path verification", re.compile(r"^\s*(original path verification|original path|reproduction verification|原路径验证|复现验证)\s*:", re.IGNORECASE | re.MULTILINE)),
     ("boundary verification", re.compile(r"^\s*(boundary verification|边界验证)\s*:", re.IGNORECASE | re.MULTILINE)),
@@ -57,7 +57,7 @@ def extract_boundary_names(text: str) -> set[str]:
 
 def matched_cases_have_table_rows(text: str) -> bool:
     section_match = re.search(
-        r"^\s*(matched boundary cases|matched boundaries|boundary cases|命中的边界|边界情况)\s*:\s*(.*?)(?:\n\s*[A-Za-z][A-Za-z ]{2,}\s*:|\Z)",
+        r"^\s*(matched boundary cases|matched boundaries|selected boundary cases|selected boundaries|ai-selected boundary cases|boundary cases|命中的边界|已选边界|边界情况)\s*:\s*(.*?)(?:\n\s*[A-Za-z][A-Za-z ]{2,}\s*:|\Z)",
         text,
         re.IGNORECASE | re.MULTILINE | re.DOTALL,
     )

@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import fnmatch
-import os
+import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -13,6 +13,9 @@ from pathlib import Path
 
 
 ROOT = Path.cwd()
+SCRIPT_DIR = Path(__file__).resolve().parent
+SKILL_DIR = SCRIPT_DIR.parent
+BOUNDARIES_DIR = SKILL_DIR / "references" / "boundaries"
 EXCLUDED_PARTS = {".git", "node_modules", "dist", "build", ".next", ".turbo", "coverage", "__pycache__"}
 LOCKFILE_NAMES = {
     "package-lock.json",
@@ -23,129 +26,97 @@ LOCKFILE_NAMES = {
     "Pipfile.lock",
     "Cargo.lock",
 }
+MAX_DIFF_LINES = 180
+MAX_DIFF_LINE_LENGTH = 220
+SIGNAL_WORDS = (
+    "abortcontroller",
+    "aria-",
+    "auth",
+    "await",
+    "cache",
+    "callback",
+    "cancel",
+    "collation",
+    "cookie",
+    "cron",
+    "currency",
+    "cursor",
+    "decimal",
+    "debounce",
+    "dedupe",
+    "disabled",
+    "drawer",
+    "dst",
+    "download",
+    "empty",
+    "error",
+    "export",
+    "fetch",
+    "file",
+    "filter",
+    "focus",
+    "form",
+    "guard",
+    "header",
+    "hover",
+    "idempotent",
+    "import",
+    "invalidate",
+    "job",
+    "keyboard",
+    "locale",
+    "localstorage",
+    "mobile",
+    "modal",
+    "mutation",
+    "offline",
+    "pagination",
+    "permission",
+    "promise",
+    "query",
+    "querykey",
+    "reconnect",
+    "realtime",
+    "request",
+    "retry",
+    "role=",
+    "route",
+    "rollback",
+    "rounding",
+    "sanitize",
+    "secret",
+    "session",
+    "setstate",
+    "sse",
+    "sort",
+    "stale",
+    "subscription",
+    "tenant",
+    "timezone",
+    "touch",
+    "token",
+    "transaction",
+    "unmount",
+    "upload",
+    "useeffect",
+    "viewport",
+    "websocket",
+    "worker",
+    "xss",
+)
 
 
 @dataclass(frozen=True)
-class Route:
+class BoundaryCard:
     name: str
-    path_patterns: tuple[str, ...]
-    words: tuple[str, ...]
-    cards: tuple[str, ...]
-    inspect: tuple[str, ...]
-    avoid: tuple[str, ...]
-
-
-ROUTES: tuple[Route, ...] = (
-    Route(
-        name="list-table-ui",
-        path_patterns=(
-            "*List*",
-            "*Table*",
-            "*/pages/*",
-            "*/components/*",
-            "*/views/*",
-            "*/table/*",
-            "*/tables/*",
-        ),
-        words=("search", "filter", "reset", "pagination", "page", "selected", "select all", "empty", "delete", "sort"),
-        cards=("ui-list-table", "state-cache-sync"),
-        inspect=("search/filter state", "page index reset", "selected rows", "list/detail/count refresh"),
-        avoid=("unrelated routes", "global styles", "full services directory"),
-    ),
-    Route(
-        name="form-validation",
-        path_patterns=(
-            "*Form.*",
-            "*Form/*",
-            "*-form.*",
-            "*_form.*",
-            "*/form/*",
-            "*/forms/*",
-            "*Dialog*",
-            "*Modal*",
-            "*/validators/*",
-            "*/validation/*",
-            "*/schema/*",
-        ),
-        words=("form", "validation", "submit", "save", "duplicate", "required", "disabled", "hidden", "max length", "error"),
-        cards=("form-validation", "api-contract", "state-cache-sync"),
-        inspect=("form schema and visibility", "submit loading/error state", "backend validation errors", "save invalidation"),
-        avoid=("unrelated list rendering", "unrelated deployment config"),
-    ),
-    Route(
-        name="api-contract",
-        path_patterns=(
-            "*/api/*",
-            "*/client/*",
-            "*/clients/*",
-            "*/request/*",
-            "*/requests/*",
-            "*/service/*",
-            "*/services/*",
-            "*/controllers/*",
-            "*/routes/*",
-            "*Controller*",
-            "*Service*",
-        ),
-        words=("400", "404", "409", "422", "500", "response", "request", "params", "headers", "body", "serialization", "dto", "schema", "openapi"),
-        cards=("api-contract",),
-        inspect=("API method/path/params/body", "status-code branches", "error body shape", "client/server DTO sync"),
-        avoid=("unrelated UI layout files", "full migrations directory unless persistence is implicated"),
-    ),
-    Route(
-        name="auth-permission",
-        path_patterns=("*/auth/*", "*/permission/*", "*/permissions/*", "*/session/*", "*/login/*", "*/middleware/*", "*/guard/*"),
-        words=("login", "logout", "session", "token", "permission", "role", "unauthorized", "forbidden", "password", "expired", "401", "403"),
-        cards=("auth-permission",),
-        inspect=("route/API guards", "session state machine", "menu/button/API permission consistency", "token cleanup"),
-        avoid=("unrelated table pagination", "unrelated worker queues"),
-    ),
-    Route(
-        name="tenant-context",
-        path_patterns=("*/tenant/*", "*/project/*", "*/site/*", "*/organization/*", "*/org/*", "*/workspace/*"),
-        words=("tenant", "project", "site", "org", "organization", "workspace", "switch", "isolation", "leak", "cross tenant"),
-        cards=("tenant-isolation", "state-cache-sync", "security-sensitive-data"),
-        inspect=("active context propagation", "cache keys and selected rows", "exports and realtime requests", "server-side authorization"),
-        avoid=("unrelated visual styling", "unrelated deployment scripts"),
-    ),
-    Route(
-        name="database-persistence",
-        path_patterns=("*/db/*", "*/database/*", "*/models/*", "*/repositories/*", "*/repo/*", "*/migrations/*", "*/prisma/*", "*/sql/*"),
-        words=("transaction", "migration", "query", "join", "index", "duplicate", "soft delete", "rollback", "deadlock", "constraint", "backfill"),
-        cards=("database-transaction", "tenant-isolation", "api-contract"),
-        inspect=("query filters and ordering", "transaction boundaries", "migration safety", "tenant/user scoping"),
-        avoid=("unrelated component CSS", "unrelated browser-only code"),
-    ),
-    Route(
-        name="queue-worker",
-        path_patterns=("*/jobs/*", "*/job/*", "*/queue/*", "*/queues/*", "*/worker/*", "*/workers/*", "*/scheduler/*", "*/cron/*", "*/webhook/*"),
-        words=("queue", "worker", "job", "retry", "dead letter", "scheduler", "cron", "webhook", "duplicate", "idempotent", "timeout", "out of order"),
-        cards=("async-job-queue",),
-        inspect=("idempotency and dedupe", "retry/timeout/dead-letter behavior", "worker transaction boundaries", "deploy restart behavior"),
-        avoid=("unrelated UI components", "unrelated static assets"),
-    ),
-    Route(
-        name="deployment-config",
-        path_patterns=("*.env*", "*/config/*", "*/deploy/*", "*/deployment/*", "*/docker/*", "*/Dockerfile", "*/compose*.yml", "*/helm/*", "*/k8s/*", "*/ci/*", ".github/*"),
-        words=("env", "config", "deploy", "staging", "production", "feature flag", "compatibility", "health check", "startup", "rollback", "secret"),
-        cards=("deployment-config", "api-contract", "security-sensitive-data"),
-        inspect=("env defaults and required secrets", "feature flag states", "startup/readiness ordering", "old/new version compatibility"),
-        avoid=("unrelated form fields", "unrelated table rendering"),
-    ),
-    Route(
-        name="security-sensitive-data",
-        path_patterns=("*/security/*", "*/download/*", "*/export/*", "*/upload/*", "*/render/*", "*/html/*", "*/logger/*", "*/logging/*"),
-        words=("xss", "injection", "sanitize", "token", "cookie", "secret", "password", "private", "pii", "sensitive", "download", "export", "log", "html"),
-        cards=("security-sensitive-data", "auth-permission", "tenant-isolation"),
-        inspect=("unsafe rendering and links", "logs and telemetry", "server-side authorization", "export/download contents"),
-        avoid=("unrelated cosmetic layout", "unrelated pagination state unless the leak appears there"),
-    ),
-)
+    relative_path: str
+    applies_when: tuple[str, ...]
+    do_not_select_when: tuple[str, ...]
 
 
 def git_names(args: list[str]) -> list[str]:
     try:
-        result = subprocess.run(["git", *args], text=True, capture_output=True, check=False)
+        result = subprocess.run(["git", *args], text=True, capture_output=True, check=False, cwd=ROOT)
     except OSError:
         return []
     if result.returncode != 0:
@@ -153,12 +124,30 @@ def git_names(args: list[str]) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def changed_files_from_git(staged: bool) -> list[str]:
+def path_matches(path: str, pathspecs: list[str] | None) -> bool:
+    if not pathspecs:
+        return True
+    normalized = path.strip("/")
+    for spec in pathspecs:
+        clean = spec.strip("/")
+        if normalized == clean or normalized.startswith(f"{clean}/"):
+            return True
+    return False
+
+
+def diff_names(diff_args: list[str], pathspecs: list[str] | None = None) -> list[str]:
+    command = ["diff", "--name-only", *diff_args]
+    if pathspecs:
+        command.extend(["--", *pathspecs])
+    return git_names(command)
+
+
+def changed_files_from_git(staged: bool, pathspecs: list[str] | None = None) -> list[str]:
     names: list[str] = []
     if staged:
-        names.extend(git_names(["diff", "--cached", "--name-only"]))
+        names.extend(diff_names(["--cached"], pathspecs))
     else:
-        names.extend(git_names(["diff", "--name-only", "HEAD"]))
+        names.extend(diff_names(["HEAD"], pathspecs))
         status_lines = git_names(["status", "--short"])
         for line in status_lines:
             if not line:
@@ -169,8 +158,14 @@ def changed_files_from_git(staged: bool) -> list[str]:
             path = line[3:] if len(line) > 3 else line[2:].strip()
             if " -> " in path:
                 path = path.split(" -> ", 1)[1]
-            names.append(path.strip())
+            path = path.strip()
+            if path_matches(path, pathspecs):
+                names.append(path)
     return unique(names)
+
+
+def changed_files_from_diff_range(diff_range: str, pathspecs: list[str] | None = None) -> list[str]:
+    return unique(diff_names([diff_range], pathspecs))
 
 
 def unique(items: list[str] | tuple[str, ...]) -> list[str]:
@@ -192,54 +187,6 @@ def is_excluded(path: str) -> bool:
 
 def normalize_files(files: list[str]) -> list[str]:
     return [path for path in unique(files) if path and not is_excluded(path)]
-
-
-def match_pattern(path: str, pattern: str) -> bool:
-    normalized = path.replace(os.sep, "/")
-    if fnmatch.fnmatch(normalized, pattern):
-        return True
-    if fnmatch.fnmatch(Path(normalized).name, pattern):
-        return True
-    if pattern.startswith("*/") and fnmatch.fnmatch(normalized, pattern[2:]):
-        return True
-    return False
-
-
-def route_score(route: Route, files: list[str], bug_text: str) -> int:
-    score, _path_hits, _word_hits = route_hits(route, files, bug_text)
-    return score
-
-
-def route_hits(route: Route, files: list[str], bug_text: str) -> tuple[int, int, int]:
-    score = 0
-    path_hits = 0
-    word_hits = 0
-    lowered = bug_text.lower()
-    for path in files:
-        path_lower = path.lower()
-        for pattern in route.path_patterns:
-            if match_pattern(path, pattern) or match_pattern(path_lower, pattern.lower()):
-                score += 3
-                path_hits += 1
-    for word in route.words:
-        if word.lower() in lowered:
-            score += 2
-            word_hits += 1
-    return score, path_hits, word_hits
-
-
-def matched_routes(files: list[str], bug_text: str) -> list[tuple[Route, int]]:
-    details = [(route, *route_hits(route, files, bug_text)) for route in ROUTES]
-    strong_non_api = any(route.name != "api-contract" and score >= 3 for route, score, _path_hits, _word_hits in details)
-    matches: list[tuple[Route, int]] = []
-    for route, score, _path_hits, word_hits in details:
-        if score < 3:
-            continue
-        if route.name == "api-contract" and word_hits == 0 and strong_non_api:
-            continue
-        matches.append((route, score))
-    matches.sort(key=lambda item: (-item[1], item[0].name))
-    return matches
 
 
 def detect_project_signals(root: Path) -> list[str]:
@@ -308,6 +255,68 @@ def read_next(files: list[str], tests: list[str]) -> list[str]:
     return unique(files + tests)[:10]
 
 
+def collect_diff(files: list[str], diff_args: list[str]) -> list[str]:
+    if not files:
+        return []
+    command = ["git", "diff", "--unified=3"]
+    command.extend(diff_args)
+    command.extend(["--", *files])
+    try:
+        result = subprocess.run(command, text=True, capture_output=True, check=False, cwd=ROOT)
+    except OSError:
+        return []
+    if result.returncode != 0 or not result.stdout.strip():
+        return []
+    return trim_diff_lines(result.stdout.splitlines())
+
+
+def trim_diff_lines(lines: list[str]) -> list[str]:
+    output: list[str] = []
+    for line in lines[:MAX_DIFF_LINES]:
+        if len(line) > MAX_DIFF_LINE_LENGTH:
+            line = f"{line[: MAX_DIFF_LINE_LENGTH - 3]}..."
+        output.append(line)
+    if len(lines) > MAX_DIFF_LINES:
+        output.append(f"... diff truncated after {MAX_DIFF_LINES} lines ...")
+    return output
+
+
+def signal_words(files: list[str], bug_text: str, diff_lines: list[str]) -> list[str]:
+    haystack = "\n".join([*files, bug_text, *diff_lines]).lower()
+    found = [word for word in SIGNAL_WORDS if word in haystack]
+    return unique(found)
+
+
+def section_bullets(text: str, heading: str) -> tuple[str, ...]:
+    match = re.search(rf"^## {re.escape(heading)}\n(.*?)(?:\n## |\Z)", text, re.MULTILINE | re.DOTALL)
+    if not match:
+        return ()
+    bullets: list[str] = []
+    for line in match.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            bullets.append(stripped[2:].strip())
+    return tuple(bullets)
+
+
+def load_boundary_cards() -> list[BoundaryCard]:
+    cards: list[BoundaryCard] = []
+    for path in sorted(BOUNDARIES_DIR.glob("*.md")):
+        text = safe_read(path, limit=20000)
+        applies_when = section_bullets(text, "Applies When")
+        do_not_select_when = section_bullets(text, "Do Not Select When")
+        relative_path = path.relative_to(SKILL_DIR).as_posix()
+        cards.append(
+            BoundaryCard(
+                name=path.stem,
+                relative_path=relative_path,
+                applies_when=applies_when,
+                do_not_select_when=do_not_select_when,
+            )
+        )
+    return cards
+
+
 def print_section(title: str, items: list[str], *, numbered: bool = False) -> None:
     print(f"{title}:")
     if items:
@@ -319,16 +328,199 @@ def print_section(title: str, items: list[str], *, numbered: bool = False) -> No
     print()
 
 
-def build_pack(files: list[str], bug_text: str, source: str) -> int:
+def print_diff_section(diff_lines: list[str]) -> None:
+    print("Diff context:")
+    if diff_lines:
+        print("```diff")
+        for line in diff_lines:
+            print(line)
+        print("```")
+    else:
+        print("- no git diff detected for the changed scope")
+    print()
+
+
+def print_card_index(cards: list[BoundaryCard]) -> None:
+    print("Available boundary card index:")
+    if not cards:
+        print("- none detected")
+    for card in cards:
+        print(f"- {card.name} -> {card.relative_path}")
+        for item in card.applies_when[:2]:
+            print(f"  applies: {item}")
+    print()
+
+
+COMMON_TERMS = {
+    "and",
+    "are",
+    "bug",
+    "changed",
+    "changes",
+    "code",
+    "file",
+    "files",
+    "include",
+    "mentions",
+    "only",
+    "path",
+    "text",
+    "the",
+    "when",
+    "with",
+}
+
+
+def terms(text: str) -> set[str]:
+    return {
+        item
+        for item in re.findall(r"[a-z0-9][a-z0-9-]{2,}", text.lower())
+        if item not in COMMON_TERMS and not item.isdigit()
+    }
+
+
+def normalize_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower())
+
+
+def matching_terms(card_terms: set[str], haystack: str) -> list[str]:
+    normalized = normalize_text(haystack)
+    return sorted(term for term in card_terms if term.replace("-", " ") in normalized or term in normalized)
+
+
+def suggested_candidates(
+    cards: list[BoundaryCard],
+    files: list[str],
+    bug_text: str,
+    diff_lines: list[str],
+) -> list[tuple[int, BoundaryCard, list[str]]]:
+    file_text = "\n".join(files)
+    diff_text = "\n".join(diff_lines)
+    suggestions: list[tuple[int, BoundaryCard, list[str]]] = []
+    for card in cards:
+        card_terms = terms(" ".join([card.name, *card.applies_when]))
+        path_hits = matching_terms(card_terms, file_text)
+        bug_hits = matching_terms(card_terms, bug_text)
+        diff_hits = matching_terms(card_terms, diff_text)
+        score = len(path_hits) * 3 + len(bug_hits) * 2 + len(diff_hits)
+        reasons: list[str] = []
+        if path_hits:
+            reasons.append(f"path hints: {', '.join(path_hits[:5])}")
+        if bug_hits:
+            reasons.append(f"bug hints: {', '.join(bug_hits[:5])}")
+        if diff_hits:
+            reasons.append(f"diff hints: {', '.join(diff_hits[:5])}")
+        if score:
+            suggestions.append((score, card, reasons))
+    return sorted(suggestions, key=lambda item: (-item[0], item[1].name))[:6]
+
+
+def print_suggested_candidates(cards: list[BoundaryCard], files: list[str], bug_text: str, diff_lines: list[str]) -> None:
+    print("Suggested candidate cards (not final matches):")
+    suggestions = suggested_candidates(cards, files, bug_text, diff_lines)
+    if not suggestions:
+        print("- none from weak path, bug, or diff signals")
+    for score, card, reasons in suggestions:
+        reason_text = "; ".join(reasons) if reasons else "weak evidence only"
+        print(f"- {card.name} (score {score}): {reason_text}")
+    print()
+
+
+def print_selection_guidance() -> None:
+    print("Card selection guidance:")
+    print("- AI selects final boundary cards from evidence; this script only suggests candidates and does not decide matches.")
+    print("- Use changed files, bug text, diff context, project signals, and nearby tests as evidence.")
+    print("- Treat path and keyword hints as weak signals; apply each card's Do Not Select When rules before reading it.")
+    print("- If no card fits, record a manual boundary instead of skipping boundary analysis.")
+    print()
+
+
+def print_no_changed_scope_guidance() -> None:
+    print("No changed scope fallback:")
+    print("- No changed files or explicit paths were available, so this is not a full boundary check.")
+    print("- Bug text may suggest tentative boundary hypotheses, but those are not matched cards.")
+    print("- Do not mark cards as covered, missing, fixed, or not applicable until changed code is inspected.")
+    print("- Ask for changed files, wait for a diff, or rerun with explicit --files after implementation.")
+    print()
+
+
+def print_boundary_table_template() -> None:
+    print("Boundary handling table template:")
+    print("| Boundary | Status | Evidence | Action |")
+    print("|---|---|---|---|")
+    print("| selected-boundary | relevant | why this card was selected from code/diff evidence | inspect, fix, or verify |")
+
+
+def package_manager(root: Path) -> str | None:
+    if (root / "pnpm-lock.yaml").exists():
+        return "pnpm"
+    if (root / "yarn.lock").exists():
+        return "yarn"
+    if (root / "bun.lockb").exists():
+        return "bun"
+    if (root / "package-lock.json").exists() or (root / "package.json").exists():
+        return "npm"
+    return None
+
+
+def package_scripts(root: Path) -> set[str]:
+    package = root / "package.json"
+    if not package.exists():
+        return set()
+    try:
+        data = json.loads(package.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    scripts = data.get("scripts")
+    if not isinstance(scripts, dict):
+        return set()
+    return {str(key) for key in scripts}
+
+
+def verification_candidates(files: list[str], tests: list[str]) -> list[str]:
+    candidates: list[str] = []
+    manager = package_manager(ROOT)
+    scripts = package_scripts(ROOT)
+    test_paths = " ".join(tests[:4])
+
+    if manager and "test" in scripts:
+        candidates.append(f"{manager} test -- {test_paths}" if test_paths else f"{manager} test")
+    if manager and "lint" in scripts:
+        candidates.append(f"{manager} run lint")
+    if manager and "typecheck" in scripts:
+        candidates.append(f"{manager} run typecheck")
+    if (ROOT / "pyproject.toml").exists() or any(path.endswith(".py") for path in files + tests):
+        candidates.append(f"python3 -m pytest {test_paths}".strip())
+    if (ROOT / "scripts" / "validate-project.py").exists():
+        candidates.append("python3 scripts/validate-project.py")
+    if not candidates:
+        candidates.append("no automated command detected; verify the original path and selected boundary manually")
+    return unique(candidates)
+
+
+def print_verification_candidates(files: list[str], tests: list[str]) -> None:
+    print_section("Verification candidates (not executed)", verification_candidates(files, tests))
+
+
+def diff_source_args(staged: bool, base: str | None, diff_range: str | None) -> list[str]:
+    if staged:
+        return ["--cached"]
+    if base:
+        return [f"{base}...HEAD"]
+    if diff_range:
+        return [diff_range]
+    return ["HEAD"]
+
+
+def build_pack(files: list[str], bug_text: str, source: str, staged: bool, base: str | None, diff_range: str | None) -> int:
     files = normalize_files(files)
-    matches = matched_routes(files, bug_text)
-    cards = unique([card for route, _score in matches for card in route.cards])
-    inspect = unique([item for route, _score in matches for item in route.inspect])
-    avoid = unique([item for route, _score in matches for item in route.avoid])
+    diff_lines = collect_diff(files, diff_source_args(staged, base, diff_range))
+    signals = signal_words(files, bug_text, diff_lines)
+    cards = load_boundary_cards()
     tests = nearby_tests(files)
-    signals = detect_project_signals(ROOT)
+    project_signals = detect_project_signals(ROOT)
     if tests:
-        signals.append("tests: nearby tests detected")
+        project_signals.append("tests: nearby tests detected")
 
     print("Bug Context Pack")
     print()
@@ -337,36 +529,45 @@ def build_pack(files: list[str], bug_text: str, source: str) -> int:
         print(f"Bug description: {bug_text}")
     print()
     print_section("Changed scope", files)
-    print_section("Project signals", signals)
-    print_section("Matched boundary cards", cards)
+    print_section("Project signals", project_signals)
+    print_diff_section(diff_lines)
+    print_section("Diff signal words", signals)
+    print_suggested_candidates(cards, files, bug_text, diff_lines)
+    print_card_index(cards)
+    print_selection_guidance()
+    if not files:
+        print_no_changed_scope_guidance()
     print_section("Read next", read_next(files, tests), numbered=True)
-    print_section("Inspect first", inspect)
-    print_section("Do not read yet", avoid)
-    print("Boundary handling table template:")
-    print("| Boundary | Status | Evidence | Action |")
-    print("|---|---|---|---|")
-    for card in cards:
-        print(f"| {card} | pending | | |")
-    if not cards:
-        print("| none matched | pending | add manual routing from bug evidence | inspect changed files first |")
+    print_verification_candidates(files, tests)
+    print_boundary_table_template()
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bug", default="", help="Bug description, error text, or reproduction summary.")
-    parser.add_argument("--staged", action="store_true", help="Use staged git changes instead of all working tree changes.")
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument("--staged", action="store_true", help="Use staged git changes instead of all working tree changes.")
+    source_group.add_argument("--base", help="Use git diff BASE...HEAD as the changed scope source.")
+    source_group.add_argument("--diff-range", help="Use an explicit git diff range, such as main...HEAD or HEAD~1..HEAD.")
     parser.add_argument("--files", nargs="*", default=None, help="Changed files to route. Overrides git discovery.")
     args = parser.parse_args()
 
-    if args.files is not None and len(args.files) > 0:
+    pathspecs = args.files if args.files is not None and (args.staged or args.base or args.diff_range) else None
+    if args.files is not None and not (args.staged or args.base or args.diff_range):
         files = args.files
         source = "explicit --files"
+    elif args.base:
+        files = changed_files_from_diff_range(f"{args.base}...HEAD", pathspecs)
+        source = f"git diff {args.base}...HEAD"
+    elif args.diff_range:
+        files = changed_files_from_diff_range(args.diff_range, pathspecs)
+        source = f"git diff {args.diff_range}"
     else:
-        files = changed_files_from_git(staged=args.staged)
+        files = changed_files_from_git(staged=args.staged, pathspecs=pathspecs)
         source = "git diff --cached" if args.staged else "git diff/status"
 
-    return build_pack(files, args.bug, source)
+    return build_pack(files, args.bug, source, staged=args.staged, base=args.base, diff_range=args.diff_range)
 
 
 if __name__ == "__main__":

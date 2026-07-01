@@ -10,6 +10,9 @@ Each boundary card is a compact checklist that lets an AI decide whether a commo
 ## Applies When
 - Changed files or bug words that make this card relevant.
 
+## Do Not Select When
+- Evidence that should make the AI skip this card even if weak keywords match.
+
 ## Inspect
 - Code paths, state, API, data, tests, or runtime evidence to inspect first.
 

@@ -1,6 +1,6 @@
 # Completion Contract
 
-Final bug-fix reports must prove closure of the original path and the matched boundary cards. A broad lint/test pass is not a substitute for boundary evidence.
+Final bug-fix reports must prove closure of the original path and the AI-selected boundary cards. A broad lint/test pass is not a substitute for boundary evidence.
 
 ```text
 Root cause:
@@ -34,7 +34,7 @@ Minimum evidence:
 - `Root cause:` names the failed mechanism, not only the symptom.
 - `Changed files:` lists the files or clearly states no code files changed.
 - `Context pack source:` says whether it came from `build-bug-context.py`, manual routing, explicit changed files, or user-provided report.
-- `Matched boundary cases:` lists every loaded boundary card.
+- `Matched boundary cases:` lists every boundary card the AI selected and loaded from the context pack, plus any manual boundary key when no card fit.
 - `Boundary handling table:` includes one row per matched card.
 - `Original path verification:` states how the original failure path was reproduced/traced and verified.
 - `Boundary verification:` states checks for every boundary marked `missing -> fixed`, and records skipped relevant checks as risk.

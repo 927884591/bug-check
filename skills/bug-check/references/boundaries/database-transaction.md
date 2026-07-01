@@ -4,6 +4,11 @@
 - Changed files include database access, repositories, models, migrations, SQL, ORM schemas, transactions, backfills, or data repair scripts.
 - Bug text mentions transaction, migration, query, join, index, duplicate, unique constraint, rollback, partial write, soft delete, cascade, deadlock, or old data.
 
+## Do Not Select When
+- The change does not read, write, migrate, repair, or rely on persisted database state.
+- Database words appear only in mocked tests, UI labels, or API types and no real query/transaction/schema path changes.
+- The boundary is only request/response shape around existing persistence behavior; use api-contract instead.
+
 ## Inspect
 - Actual query filters, joins, ordering, limits, indexes, and tenant/user scoping.
 - Transaction boundaries, retries, rollback behavior, and cleanup after failure.

@@ -4,6 +4,11 @@
 - Changed files include security, auth, logging, telemetry, downloads, exports, uploads, rendering, rich text, HTML, templates, URLs, cookies, tokens, or secrets.
 - Bug text mentions XSS, injection, sanitize, unsafe HTML, token, cookie, secret, password, private URL, PII, sensitive data, download, export, copied link, logs, or screenshots.
 
+## Do Not Select When
+- The change does not touch user-controlled content, auth material, logs, telemetry, exports, downloads, URLs, secrets, or personal data.
+- Security-like words appear only in internal docs or tests and no runtime exposure, rendering, authorization, or logging path changes.
+- The boundary is permission correctness without data exposure or secret handling; use auth-permission or tenant-isolation instead.
+
 ## Inspect
 - User-controlled HTML/text in URL params, backend messages, table cells, tooltips, dialogs, rich text, and exported files.
 - Download, preview, share, and detail links for permission bypass.

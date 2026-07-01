@@ -4,6 +4,11 @@
 - Changed files include list, table, grid, search, filter, sort, pagination, selection, or page/view components.
 - Bug text mentions search, filter, reset, pagination, page 2+, selected rows, select all, empty state, sort, delete, or stale list data.
 
+## Do Not Select When
+- The changed UI is not a collection view and has no list/grid/table, paging, sorting, filtering, selection, or batch action state.
+- The issue is a general form submit/validation lifecycle rather than collection state; use form-validation instead.
+- The only collection behavior is URL query/back-forward persistence; use navigation-url-state with this card only if pagination/list state also changed.
+
 ## Inspect
 - Page index, page size, filters, query params, sort state, and URL state.
 - Selected rows, all-select, cross-page selection, hidden IDs, and batch actions.

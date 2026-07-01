@@ -4,6 +4,11 @@
 - Changed files include tenant, project, site, organization, workspace, context switch, scoped APIs, dropdown options, exports, websocket/polling, or cache keys.
 - Bug text mentions tenant, project, site, org, workspace, isolation, cross-context data, leak, switch, stale options, or wrong records.
 
+## Do Not Select When
+- The product area has no tenant/project/site/org/workspace context and all data is intentionally global.
+- Context-like words appear only in UI labels and no scoped query, cache key, route, export, subscription, or mutation changes.
+- The issue is authentication state before any tenant context is chosen; use auth-permission instead.
+
 ## Inspect
 - Active tenant/project/site/org propagation through list, detail, mutation, export, polling, and websocket calls.
 - Cache keys, selected rows, dropdown options, recent records, statistics, permissions, and local storage.

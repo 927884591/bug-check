@@ -4,6 +4,11 @@
 - Changed files include state stores, query caches, mutations, list/detail pages, derived counters, tabs, polling, subscriptions, or local storage.
 - Bug text mentions stale data, refresh, cache, invalidation, create/edit/delete not reflected, count mismatch, old callback, or context switch.
 
+## Do Not Select When
+- The changed behavior is stateless rendering with no store, query cache, local storage, mutation, polling, or derived state.
+- The failure mechanism is only URL/query navigation persistence; use navigation-url-state instead.
+- The stale behavior comes from overlapping in-flight async work rather than cache/update propagation; use client-async-race instead.
+
 ## Inspect
 - Mutation success, failure, optimistic update, rollback, and invalidation paths.
 - List, detail, cards, counters, charts, and action buttons affected by the mutation.

@@ -1,248 +1,80 @@
-# Routing Rules
+# Boundary Selection Guide
 
-Use this file before loading boundary cards. The goal is to route changed files and the bug description to a small context pack, not to read the whole repository.
+Use this file after building a context pack. The goal is for the AI to select a small set of boundary cards from evidence, not for a script to decide the match.
 
 ## Inputs
 
 Use:
-- changed file paths from git diff, staged files, explicit `--files`, or the user's report
-- diff hunks when available
-- bug description words, error messages, and status codes
+- changed file paths from git diff, staged files, `--base`, `--diff-range`, explicit `--files`, or the user's report
+- diff hunks and changed symbols when available
+- bug description words, error messages, status codes, and reproduction steps
 - project structure signals such as package files, API folders, migration folders, worker folders, and test folders
 - nearby tests in the same directory, `__tests__`, `tests`, or matching `*.test.*` and `*.spec.*`
+- the boundary card index emitted by `scripts/build-bug-context.py`
+- suggested candidate cards emitted by `scripts/build-bug-context.py`, treated only as weak routing hints
+- verification candidates emitted by `scripts/build-bug-context.py`, treated only as possible commands or manual checks
 
-## Output Tags
+## Selection Rules
 
-Each route returns:
-- boundary tags
-- boundary card files to load
-- suggested source/test files to read next
-- focused inspection targets
-- areas to avoid until evidence makes them relevant
+- If there is no changed scope, do not select final matched cards. Use bug text only to list tentative boundary hypotheses and state that a real boundary check requires changed files, a diff, or explicit paths.
+- Start from the failed mechanism, not the directory name.
+- Treat file paths and keyword hits as weak hints. Select a card only when the changed code path can cross that boundary.
+- Apply a card's `Do Not Select When` section before reading or using it; weak candidate ranking never overrides those exclusion rules.
+- Prefer 1-4 cards. Choose more only when the bug crosses multiple real boundaries, such as UI state plus API contract plus auth.
+- Read only selected card files from `references/boundaries/`.
+- If no card fits, record a manual boundary with evidence instead of skipping boundary analysis.
+- Persist a manual boundary candidate only when it names a reusable failed invariant. Use the project-local `.bug-check/manual-boundaries.jsonl` store through `scripts/review-boundary-candidates.py record`; do not read that store during normal routing.
+- If a plausible card is not selected, be ready to explain why the current code path does not cross that boundary.
 
-## Routes
+## Manual Boundary Candidates
 
-### list-table-ui
+Manual candidates are an evidence log for skill maintenance, not formal boundary cards.
 
-Signals:
-- paths: `**/*List*`, `**/*Table*`, `**/pages/**`, `**/components/**`, `**/views/**`
-- words: search, filter, reset, pagination, page, selected row, select all, empty, delete, sort
+Promote or merge a candidate only when:
+- high or critical risk affects security, permissions, tenant isolation, persisted data, or production recovery
+- the same failed invariant repeats across tasks, modules, or projects
+- a current card cannot cover the mechanism with a small focused update
+- the candidate has a reusable `Verify` path, not only a business-specific symptom
 
-Boundary tags:
-- `ui-list-table`
-- `state-cache-sync`
+Prefer updating an existing card over creating a new card when one to three lines cover the mechanism. Keep project-private details in the candidate store and add only abstracted, reusable knowledge to formal boundary cards.
 
-Load files:
-- `references/boundaries/ui-list-table.md`
-- `references/boundaries/state-cache-sync.md`
+## Card Index
 
-Inspect first:
-- search, filter, sort, and page index state
-- selected rows and all-select state
-- list/detail/count refresh after mutation
-- nearby component or integration tests
+`scripts/build-bug-context.py` reads `references/boundaries/*.md` and prints each card with its file path and `Applies When` summary. Use that index as the source of truth for available cards.
 
-Do not read yet:
-- unrelated routes
-- global styles
-- the full services directory
+Common selection patterns:
 
-### form-validation
+- `ui-list-table`: list, table, grid, search, filter, sort, pagination, selection, empty, or batch-action behavior.
+- `ui-overlay-focus`: modal, dialog, drawer, popover, portal, focus, keyboard, screen reader, scroll lock, or overlay cleanup behavior.
+- `responsive-a11y-input`: responsive layout, mobile viewport, keyboard access, focus, labels, touch targets, or hover-only controls.
+- `form-validation`: forms, dialogs, drawers, validators, submit state, hidden/disabled fields, or backend validation mapping.
+- `state-cache-sync`: state stores, query caches, mutations, polling, subscriptions, stale callbacks, or context switch cleanup.
+- `client-async-race`: hooks, effects, fetchers, timers, subscriptions, stale requests, unmount callbacks, or async state races.
+- `realtime-subscription`: WebSocket, SSE, event streams, subscriptions, reconnect, duplicate events, missed updates, or offline recovery.
+- `navigation-url-state`: route params, query params, tabs, deep links, redirects, refresh, copied URLs, or browser back/forward behavior.
+- `performance-resource-lifecycle`: long-lived resources, listeners, observers, timers, repeated renders, large lists/charts, cleanup, leaks, or jank.
+- `api-contract`: request/response shape, status codes, params, headers, DTOs, schemas, serialization, or generated clients.
+- `auth-permission`: login/logout/session, route/API guards, roles, object-level authorization, 401, or 403 behavior.
+- `tenant-isolation`: tenant/project/site/org/workspace propagation, cache keys, scoped APIs, exports, or cross-context data.
+- `database-transaction`: queries, repositories, migrations, transactions, rollback, constraints, backfills, or persisted consistency.
+- `async-job-queue`: jobs, workers, queues, retries, idempotency, timeouts, schedulers, webhooks, or long-running work.
+- `file-transfer-export`: upload, download, import, export, file validation, generated reports, signed URLs, or partial transfer failures.
+- `i18n-timezone-format`: timezone, DST, locale, date boundaries, currency, decimals, rounding, translated labels, or export formatting.
+- `deployment-config`: env/config, feature flags, startup/readiness, CI/deploy, secrets, or old/new version compatibility.
+- `security-sensitive-data`: XSS/injection, unsafe rendering, tokens, cookies, secrets, private URLs, logs, exports, or downloads.
 
-Signals:
-- paths: `**/*Form*`, `**/*Dialog*`, `**/*Modal*`, `**/forms/**`, `**/validators/**`
-- words: form, validation, submit, save, duplicate, required, disabled, hidden, max length, error message
+## Output
 
-Boundary tags:
-- `form-validation`
-- `api-contract`
-- `state-cache-sync`
+If changed scope exists, decide before reading boundary cards:
+- selected boundary cards
+- evidence for selecting each card
+- candidate cards intentionally rejected by `Do Not Select When` when the context builder suggested them
+- cards intentionally not selected when they are plausible but not supported by the code path
+- source/test files to inspect next
 
-Load files:
-- `references/boundaries/form-validation.md`
-- `references/boundaries/api-contract.md`
-- `references/boundaries/state-cache-sync.md`
+Then read the selected cards and complete the Boundary Handling Table with final statuses.
 
-Inspect first:
-- form schema and field visibility rules
-- submit disabled/loading/error paths
-- backend validation error handling
-- mutation refresh after save
-
-Do not read yet:
-- unrelated list rendering
-- unrelated deployment config
-
-### api-contract
-
-Signals:
-- paths: `**/api/**`, `**/client/**`, `**/clients/**`, `**/request/**`, `**/requests/**`, `**/service/**`, `**/services/**`, `**/controllers/**`, `**/routes/**`
-- words: 400, 401, 403, 404, 409, 422, 500, response, request, params, headers, body, serialization, DTO, schema, OpenAPI
-
-Boundary tags:
-- `api-contract`
-
-Load files:
-- `references/boundaries/api-contract.md`
-
-Inspect first:
-- request method, URL, params, headers, and body shape
-- response schema and error body handling
-- generated client or shared DTO updates
-- status-code branches in callers
-- auth headers and `auth-permission` only when the bug mentions 401, 403, auth, session, token, role, or permission
-
-Do not read yet:
-- unrelated UI layout files
-- full database migrations unless persistence is implicated
-
-### auth-permission
-
-Signals:
-- paths: `**/auth/**`, `**/permission/**`, `**/permissions/**`, `**/session/**`, `**/login/**`, `**/middleware/**`, `**/guard/**`
-- words: login, logout, session, token, permission, role, unauthorized, forbidden, 401, 403, password, expired
-
-Boundary tags:
-- `auth-permission`
-
-Load files:
-- `references/boundaries/auth-permission.md`
-
-Inspect first:
-- route/API guards and object-level authorization
-- session-expired and no-permission branches
-- menu/button/API permission consistency
-- token and sensitive-data exposure
-- `security-sensitive-data` only when the bug involves tokens, cookies, secrets, logs, downloads, exports, private URLs, or rendered unsafe content
-
-Do not read yet:
-- unrelated table pagination
-- unrelated worker queues
-
-### tenant-context
-
-Signals:
-- paths: `**/tenant/**`, `**/project/**`, `**/site/**`, `**/organization/**`, `**/org/**`, `**/workspace/**`
-- words: tenant, project, site, org, organization, workspace, switch, isolation, leak, cross tenant
-
-Boundary tags:
-- `tenant-isolation`
-- `state-cache-sync`
-- `security-sensitive-data`
-
-Load files:
-- `references/boundaries/tenant-isolation.md`
-- `references/boundaries/state-cache-sync.md`
-- `references/boundaries/security-sensitive-data.md`
-
-Inspect first:
-- active tenant/project/site/org propagation
-- cache keys, selected rows, dropdowns, and subscriptions after switch
-- detail URLs, exports, websocket/polling requests
-- authorization checks on server-side reads and writes
-
-Do not read yet:
-- unrelated visual styling
-- unrelated deployment scripts
-
-### database-persistence
-
-Signals:
-- paths: `**/db/**`, `**/database/**`, `**/models/**`, `**/repositories/**`, `**/repo/**`, `**/migrations/**`, `**/prisma/**`, `**/sql/**`
-- words: transaction, migration, query, join, index, duplicate, soft delete, rollback, deadlock, constraint, backfill
-
-Boundary tags:
-- `database-transaction`
-- `tenant-isolation`
-- `api-contract`
-
-Load files:
-- `references/boundaries/database-transaction.md`
-- `references/boundaries/tenant-isolation.md`
-- `references/boundaries/api-contract.md`
-
-Inspect first:
-- query filters, joins, limits, ordering, and indexes
-- transaction boundaries and rollback behavior
-- migration safety against existing data
-- tenant/user scoping
-
-Do not read yet:
-- unrelated component CSS
-- unrelated browser-only code
-
-### queue-worker
-
-Signals:
-- paths: `**/jobs/**`, `**/job/**`, `**/queue/**`, `**/queues/**`, `**/worker/**`, `**/workers/**`, `**/scheduler/**`, `**/cron/**`, `**/webhook/**`
-- words: queue, worker, job, retry, dead letter, scheduler, cron, webhook, duplicate, idempotent, timeout, out of order
-
-Boundary tags:
-- `async-job-queue`
-
-Load files:
-- `references/boundaries/async-job-queue.md`
-
-Inspect first:
-- idempotency keys and deduplication
-- retry, timeout, cancellation, and dead-letter behavior
-- worker/database transaction boundaries
-- deploy restart and clock-skew behavior
-- `database-transaction` only when storage writes, migrations, partial writes, or rollback are in scope
-- `deployment-config` only when config, rollout, startup, health check, or release compatibility is in scope outside normal worker restart handling
-
-Do not read yet:
-- unrelated UI components
-- unrelated static assets
-
-### deployment-config
-
-Signals:
-- paths: `**/.env*`, `**/config/**`, `**/deploy/**`, `**/deployment/**`, `**/docker/**`, `**/Dockerfile`, `**/compose*.yml`, `**/helm/**`, `**/k8s/**`, `**/ci/**`, `.github/**`
-- words: env, config, deploy, staging, production, feature flag, compatibility, health check, startup, rollback, secret
-
-Boundary tags:
-- `deployment-config`
-- `api-contract`
-- `security-sensitive-data`
-
-Load files:
-- `references/boundaries/deployment-config.md`
-- `references/boundaries/api-contract.md`
-- `references/boundaries/security-sensitive-data.md`
-
-Inspect first:
-- environment variable defaults and required secrets
-- feature flag states and rollout targeting
-- startup/readiness/migration/deploy ordering
-- old/new version compatibility
-
-Do not read yet:
-- unrelated form fields
-- unrelated table rendering
-
-### security-sensitive-data
-
-Signals:
-- paths: `**/security/**`, `**/download/**`, `**/export/**`, `**/upload/**`, `**/render/**`, `**/html/**`, `**/logger/**`, `**/logging/**`
-- words: xss, injection, sanitize, token, cookie, secret, password, private, PII, sensitive, download, export, log, HTML
-
-Boundary tags:
-- `security-sensitive-data`
-- `auth-permission`
-- `tenant-isolation`
-
-Load files:
-- `references/boundaries/security-sensitive-data.md`
-- `references/boundaries/auth-permission.md`
-- `references/boundaries/tenant-isolation.md`
-
-Inspect first:
-- unsafe rendering and link/download permissions
-- log, telemetry, screenshot, and export contents
-- server-side authorization and object-level access
-- token, cookie, and secret handling
-
-Do not read yet:
-- unrelated cosmetic layout
-- unrelated pagination state unless the leak appears there
+If no changed scope exists, output only:
+- no changed files or explicit paths were available
+- tentative boundary hypotheses, clearly labeled as hypotheses
+- the code evidence needed before this can become a real boundary check
