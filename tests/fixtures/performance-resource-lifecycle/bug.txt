@@ -1,1 +1,0 @@
-Repeated dashboard open adds duplicate resize listeners and the chart slows down after route switches.

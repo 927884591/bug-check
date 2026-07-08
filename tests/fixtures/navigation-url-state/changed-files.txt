@@ -1,2 +1,0 @@
-src/routes/UserListRoute.tsx
-src/router/navigation.ts
