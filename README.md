@@ -1,19 +1,20 @@
 # bug-check
 
-`bug-check` is a changed-files driven bug boundary system for AI coding agents. It packages modified files, bug descriptions, diff context, nearby tests, and a boundary-card index so the AI can select relevant boundary cases, record explicit handling status, and verify before completion.
+`bug-check` is a two-stage behavior-safety skill for AI coding agents. Before coding, it separates specified behavior and existing contracts from AI inference and unresolved product decisions. After coding, it packages validated changed scope, diff context, nearby tests, and verification candidates so the agent can falsify observable claims and require executed evidence before completion.
 
-It is designed to reduce common AI-introduced boundary bugs by turning bug work into this loop:
+It is designed to reduce both requirement-guessing errors and AI-introduced regressions through this loop:
 
 ```text
-Changed files + bug description + project shape
-  -> context pack
-  -> AI-selected boundary cards
-  -> compare boundary knowledge with changed code
-  -> fix missing handling
-  -> targeted verification
+Requirement + existing contracts
+  -> sourced acceptance claims
+  -> unresolved product decisions
+  -> impact scope + changed files
+  -> smallest counterexamples
+  -> executed runtime/test evidence
+  -> product decision, investigate, fix, runtime evidence, or verified
 ```
 
-It does not guarantee all bugs disappear, does not replace your test framework, does not run hooks by default, and does not modify project AGENTS.md by default.
+It does not invent product policy, guarantee all bugs disappear, replace your test framework, independently prove that a written report is truthful, run hooks by default, or modify project AGENTS.md by default.
 
 ## Architecture
 
@@ -22,38 +23,37 @@ It does not guarantee all bugs disappear, does not replace your test framework, 
 ├── AGENTS.md
 ├── README.md
 ├── scripts/
-│   ├── check-bug-report.py
+│   ├── check-completion-proof.py
 │   ├── install-local.sh
-│   ├── review-boundary-candidates.py
+│   ├── evaluate-benchmark.py
 │   ├── validate-install.py
 │   └── validate-project.py
-├── tests/fixtures/
+├── tests/
+│   ├── benchmark/
+│   └── fixtures/
 └── skills/
     └── bug-check/
         ├── SKILL.md
         ├── agents/openai.yaml
         ├── references/
+        │   ├── behavior-contract.md
         │   ├── bug-check.md
-        │   ├── routing.md
-        │   ├── boundary-card-format.md
-        │   ├── completion-contract.md
-        │   └── boundaries/
+        │   └── completion-proof.md
         └── scripts/
             ├── build-bug-context.py
-            ├── check-bug-report.py
-            └── review-boundary-candidates.py
+            └── check-completion-proof.py
 ```
 
-- `skills/bug-check/SKILL.md`: concise workflow and resource routing.
-- `skills/bug-check/references/routing.md`: guides AI selection of boundary cards from context evidence.
-- `skills/bug-check/references/boundaries/`: focused boundary cards for common frontend UI, responsive accessibility, navigation/URL state, performance/resource lifecycle, async state, realtime streams, backend, API, database, queue, file transfer, i18n/timezone, auth, tenant, deployment, and security bug classes.
-- `skills/bug-check/references/completion-contract.md`: optional formal report structure for audits and checker validation.
-- `skills/bug-check/scripts/build-bug-context.py`: builds changed-scope, diff, nearby-test, and boundary-card-index context packs.
-- `skills/bug-check/scripts/check-bug-report.py`: rejects final reports missing boundary evidence.
-- `skills/bug-check/scripts/review-boundary-candidates.py`: records and reviews project-local manual boundary candidates without loading them in normal checks.
+- `skills/bug-check/SKILL.md`: concise proof workflow and resource routing.
+- `skills/bug-check/references/behavior-contract.md`: pre-change source and product-decision contract.
+- `skills/bug-check/references/completion-proof.md`: optional formal proof report contract for audits and checker validation.
+- `skills/bug-check/scripts/build-bug-context.py`: builds validated changed-scope, diff, nearby-test, verification-candidate, and proof-instruction packs.
+- `skills/bug-check/scripts/check-completion-proof.py`: lints claim/counterexample/evidence linkage and obvious proof gaps without pretending to verify truth.
+- `tests/benchmark/`: anonymized replay cases for requirement, state, interaction, and runtime failure classes.
+- `scripts/evaluate-benchmark.py`: validates the replay corpus and scores structured predictions without claiming semantic evaluation.
 - `scripts/install-local.sh`: installs the skill into `$AGENT_SKILLS_DIR/bug-check`.
-- `scripts/validate-install.py`: checks installed skill copies against the repository source.
-- `scripts/validate-project.py`: validates structure, routing behavior, fixtures, and report checking.
+- `scripts/validate-install.py`: checks installed skill copies against the repository source and succeeds only when every requested target is current.
+- `scripts/validate-project.py`: validates structure, proof-pack behavior, checker behavior, and public positioning.
 
 ## Install
 
@@ -97,102 +97,94 @@ Restart or open a new agent session after installation if the skill list was alr
 Explicit invocation:
 
 ```text
-Use $bug-check to check this changed scope against relevant bug boundaries and fix any missing handling.
+Use $bug-check before and after this behavior-changing implementation.
 ```
 
 Recommended opt-in project instruction:
 
 ```markdown
-After making code changes for a bug fix or risky behavior change, use `$bug-check`.
-Use the changed files and bug description to load only relevant boundary cards.
-Use the context pack and card index as evidence; the AI selects cards, not the script.
-Compare those boundaries against the changed code.
-Patch any missing relevant boundary handling before completion.
+Use `$bug-check` for every behavior-changing implementation, bug fix, review, or validation.
+Before editing, classify each material behavior as specified, existing-contract, inferred, or product-decision-required.
+Do not silently implement product-decision-required behavior; ask when it blocks correctness or report it out of scope.
+State observable acceptance claims and inspect affected callers, consumers, state, contracts, and tests.
+After editing, map each material claim to the current diff and changed scope.
+For each material claim, name the smallest counterexample that would disprove it.
+Inspect whether the changed code handles each counterexample.
+Run the narrowest useful verification for the original path and material counterexamples.
+If evidence is missing for a material claim, continue fixing or report the risk instead of claiming completion.
 ```
 
-For review, audit, or checker requests, `$bug-check` should report boundary gaps first and avoid patching until the user asks. For fix or implementation requests, it should patch missing relevant handling before completion.
+For review, audit, or checker requests, `$bug-check` reports decision and proof gaps first and avoids patching until the user asks. For fix or implementation requests, it patches material proof gaps before completion.
+
+Use one decision label consistently: `product-decision-required`, `continue-investigating`, `continue-fixing`, `runtime-evidence-required`, or `verified`.
 
 Default install only copies the skill. If a team wants a durable project policy, paste the snippet above into the project instruction file explicitly.
 
-Do not generate the full completion report by default. The normal result is the engineering action: missing boundary fixed, no relevant gap found, or remaining risk called out. The context builder does not prove matches; it gives the AI enough evidence to choose cards.
+Do not generate a formal proof report by default. The normal result is the engineering action: product decision requested, gap fixed, claim verified, or remaining risk called out. A lint, typecheck, or build pass alone is not enough evidence for a behavior claim.
 
-If there are no changed files, diff, or explicit paths, `$bug-check` should degrade instead of pretending to complete a boundary check. It may list tentative boundary hypotheses from the bug text, but it must wait for changed code before marking any card as covered, missing, fixed, or not applicable.
+If there are no valid changed files, diff, or explicit paths, `$bug-check` degrades instead of pretending to prove completion. Requirement text may establish tentative claims, but completion still waits for changed code and executed verification.
 
 Context pack examples:
 
 ```bash
 python3 skills/bug-check/scripts/build-bug-context.py --files src/pages/UserList.tsx src/api/users.ts --bug "filter reset leaves page empty"
 python3 skills/bug-check/scripts/build-bug-context.py --staged --bug "worker retries duplicate notifications"
-python3 skills/bug-check/scripts/build-bug-context.py --base main --bug "review PR diff for missed boundaries"
+python3 skills/bug-check/scripts/build-bug-context.py --base main --bug "review PR diff for proof gaps"
 python3 skills/bug-check/scripts/build-bug-context.py --diff-range main...HEAD --files src/pages --bug "route query state regressed"
 python3 skills/bug-check/scripts/build-bug-context.py --bug "403 response shows success toast"
 ```
 
-The context builder may print `Suggested candidate cards (not final matches)` and `Verification candidates (not executed)`. These are routing aids only: the AI still chooses final boundary cards from code-path evidence, and it must apply each card's `Do Not Select When` rules before loading or using that card.
-
-The added high-frequency cards are `navigation-url-state` for URL/history/deep-link failures and `performance-resource-lifecycle` for repeated work, leaks, cleanup, and runtime performance failures.
-
-Manual boundary candidate flow:
-
-```bash
-python3 skills/bug-check/scripts/review-boundary-candidates.py record \
-  --family ui-list-table \
-  --failed-invariant "active page remains valid after result set changes" \
-  --trigger filter,pagination \
-  --changed-path-shape "src/pages/*List.tsx" \
-  --missing-handling "page index was not reset or clamped after the result set changed" \
-  --verification "page 3 -> filter/delete -> valid page or correct empty state" \
-  --suggested-action merge-into-existing-card
-
-python3 skills/bug-check/scripts/review-boundary-candidates.py review
-python3 skills/bug-check/scripts/review-boundary-candidates.py plan
-```
-
-The candidate store defaults to `.bug-check/manual-boundaries.jsonl` in the project where the script runs. Normal `$bug-check` routing does not load this file; it is only for maintenance review. Promote a candidate only when high risk justifies it, the same failed invariant repeats, and an existing boundary card cannot cover it with a small update.
-
-Install validation:
-
-```bash
-python3 scripts/validate-install.py
-python3 scripts/validate-install.py --target "$HOME/.codex/skills/bug-check" --json
-```
-
-Missing install targets are warnings, stale existing targets fail, and at least one current target is required for success.
-
-Strict final audit/report mode, only when explicitly requested or used with `check-bug-report.py`:
+Strict final audit/checker mode, only when explicitly requested or used with `check-completion-proof.py`:
 
 ```text
-Root cause:
+Decision: verified
+Change rationale: accepted behavior contract for this feature, or use Root cause for a bug fix
 Changed files:
-Context pack source:
-Matched boundary cases: (AI-selected from the context pack, not script-matched)
-Boundary handling table:
-Original path verification:
-Boundary verification:
+- path/to/changed-file
+Context source: validated context pack or explicit manual diff
+Behavior claims:
+- C1 [source: specified]: [source-ref: user request "changing a filter starts from page 1"] observable behavior
+Counterexamples considered:
+- C1: smallest concrete disproof case
+Evidence:
+- C1: PASS — the regression test exercised the counterexample and observed the claimed behavior
 Checks run:
-Remaining risks:
+- PASS: command or manual runtime check -> exit 0 or equivalent successful result
+Remaining risks: no unverified material cases remain after the listed evidence
 ```
+
+The checker rejects a missing/non-`verified` completion decision, a no-change report, mismatched or missing source provenance, broken claim linkage, empty sections, obvious generic counterexamples/evidence, negative or failing outer checks, and checks without observed positive results. Expected nested rejection behavior such as an asserted subprocess exit 2 can still be valid when the outer regression test passes. The other four workflow decisions remain valid engineering exits, but they cannot pass as completion proofs. The checker remains a heuristic report linter: actual completion depends on running and inspecting the listed checks.
+
+## Replay benchmark
+
+`tests/benchmark/cases.json` contains anonymized replay cases spanning requirement ambiguity, stale state, first-interaction timing, product rules, realtime integration, canvas transforms, and empty data. Validate the corpus with:
+
+```bash
+python3 scripts/evaluate-benchmark.py --validate-only
+```
+
+Export blind inputs with `python3 scripts/evaluate-benchmark.py --export-prompts prompts.json`; the gold-free export includes one shared classification instruction, the allowed `stage`, `decision`, and `source` labels, the prediction output contract, and prompts containing only an opaque `case_id` plus `scenario`. To compare workflows, copy only the exported prompt file into two isolated, clean sessions that cannot read this repository, `cases.json`, gold labels, scoring output, or each other's predictions. Use the same model and settings, enabling `$bug-check` in only one session. Produce both prediction files before scoring either run with `--predictions`; otherwise the comparison is not blind. The evaluator reports exact stored-label agreement only; it does not judge explanation quality, evidence truth, or semantic correctness.
 
 ## Validate
 
 ```bash
 python3 scripts/validate-project.py
 python3 scripts/validate-install.py --target skills/bug-check
-python3 skills/bug-check/scripts/build-bug-context.py --files src/pages/UserList.tsx src/api/users.ts --bug "filter reset leaves page empty"
+python3 scripts/evaluate-benchmark.py --validate-only
+python3 skills/bug-check/scripts/build-bug-context.py --files skills/bug-check/SKILL.md skills/bug-check/references/behavior-contract.md --bug "behavior contract changed"
 python3 skills/bug-check/scripts/build-bug-context.py --diff-range HEAD..HEAD --bug "no-op diff source smoke"
-python3 skills/bug-check/scripts/review-boundary-candidates.py plan --store tests/fixtures/manual-boundaries.jsonl
-python3 skills/bug-check/scripts/check-bug-report.py tests/fixtures/valid-report.md
-python3 skills/bug-check/scripts/check-bug-report.py tests/fixtures/invalid-report.md
+python3 skills/bug-check/scripts/check-completion-proof.py tests/fixtures/valid-proof.md
+python3 skills/bug-check/scripts/check-completion-proof.py tests/fixtures/invalid-proof.md
 ```
 
-The invalid report command should fail because it lacks the Boundary handling table.
+The invalid proof command should fail because it has vague claims, no concrete claim-linked counterexample, negative evidence, no executed check, and no explained remaining-risk assessment.
 
 ## Publish
 
 ```bash
 git init
 git add .
-git commit -m "Build bug-check boundary skill"
+git commit -m "Build two-stage bug-check skill"
 git branch -M main
 git remote add origin git@github.com:<owner>/bug-check.git
 git push -u origin main

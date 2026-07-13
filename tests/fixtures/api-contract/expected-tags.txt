@@ -1,2 +1,0 @@
-api-contract
-auth-permission

@@ -1,2 +1,0 @@
-src/api/users.ts
-src/services/authClient.ts

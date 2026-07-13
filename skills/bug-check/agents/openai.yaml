@@ -1,4 +1,4 @@
 interface:
   display_name: "Bug Check"
-  short_description: "Check changed code with AI-selected bug boundaries"
-  default_prompt: "Use $bug-check to build a context pack, select relevant bug boundaries, and fix missing handling unless this is review/audit mode."
+  short_description: "Prevent behavior bugs with contracts and proof"
+  default_prompt: "Use $bug-check before and after this behavior-changing implementation to identify unresolved product decisions, challenge observable claims with minimal counterexamples, and verify executed evidence."

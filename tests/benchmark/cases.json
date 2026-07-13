@@ -1,0 +1,240 @@
+{
+  "schema_version": 1,
+  "dataset_name": "anonymous_real_bug_replay_baseline",
+  "dataset_purpose": "Replay common anonymized bug patterns and compare exact workflow-stage, decision, and requirement-source labels; category records corpus coverage only.",
+  "privacy": {
+    "source_handling": "Cases retain reusable behavior patterns while excluding identifying details and original tracking identifiers.",
+    "validation_limit": "The evaluator rejects obvious identity-bearing fields, URLs, email addresses, and IPv4 addresses, but cannot prove complete anonymization."
+  },
+  "label_space": {
+    "categories": [
+      "requirement-ambiguity",
+      "stale-state",
+      "async-first-interaction",
+      "product-rule-units-naming",
+      "realtime-integration",
+      "canvas-zoom",
+      "empty-data"
+    ],
+    "stages": [
+      "clarify",
+      "pre-change",
+      "post-change",
+      "runtime"
+    ],
+    "decisions": [
+      "product-decision-required",
+      "continue-investigating",
+      "continue-fixing",
+      "runtime-evidence-required",
+      "verified"
+    ],
+    "sources": [
+      "specified",
+      "existing-contract",
+      "inferred",
+      "product-decision-required"
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "replay-001",
+      "category": "requirement-ambiguity",
+      "scenario": {
+        "report": "A saved option should follow the latest value, but the request does not define whether latest means per item, per session, or shared across all items.",
+        "observed_behavior": "Different examples imply different persistence scopes, and each interpretation would produce a different visible result.",
+        "replay_trigger": "Open two items in one session, choose different values, close both, and open them again.",
+        "changed_scope": [],
+        "available_evidence": [
+          "The request contains examples for only one item.",
+          "No accepted persistence rule or changed code is available."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "clarify",
+        "decision": "product-decision-required",
+        "source": "product-decision-required",
+        "minimum_counterexample": "Two items need different saved values, which disproves a shared-latest interpretation but not a per-item interpretation.",
+        "rationale": "Choosing a persistence scope is a product decision; code inspection cannot resolve the missing rule."
+      }
+    },
+    {
+      "case_id": "replay-002",
+      "category": "stale-state",
+      "scenario": {
+        "report": "Saving a status shows success, but the summary continues to display the previous status until the view is reloaded.",
+        "observed_behavior": "The write response contains the new status while a separately cached read model remains unchanged.",
+        "replay_trigger": "Change the status, wait for the success result, and inspect the summary without reloading.",
+        "changed_scope": [],
+        "available_evidence": [
+          "A reload displays the saved value.",
+          "The write path and summary read path use different state holders.",
+          "No candidate diff has been supplied."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "pre-change",
+        "decision": "continue-investigating",
+        "source": "specified",
+        "minimum_counterexample": "The write succeeds while the cached summary is neither updated nor invalidated.",
+        "rationale": "The failed synchronization mechanism must be traced before editing, and there is no changed scope to prove."
+      }
+    },
+    {
+      "case_id": "replay-003",
+      "category": "async-first-interaction",
+      "scenario": {
+        "report": "The first action after opening a view is ignored while later actions work.",
+        "observed_behavior": "A patch awaits configuration in the not-ready branch, then returns without applying the action that triggered the wait.",
+        "replay_trigger": "Invoke the action immediately after mount while configuration is still loading.",
+        "changed_scope": [
+          "The interaction handler now awaits configuration in the not-ready branch before returning.",
+          "The focused test initializes configuration before invoking the handler."
+        ],
+        "available_evidence": [
+          "The changed handler still returns after readiness resolves without invoking the action logic.",
+          "The focused test covers only the already-ready path.",
+          "No test invokes the action before readiness resolves."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "post-change",
+        "decision": "continue-fixing",
+        "source": "specified",
+        "minimum_counterexample": "The action arrives one event-loop turn before configuration becomes ready and is never replayed.",
+        "rationale": "The patch preserves the original first-interaction failure, and its test cannot falsify that timing."
+      }
+    },
+    {
+      "case_id": "replay-004",
+      "category": "product-rule-units-naming",
+      "scenario": {
+        "report": "A numeric value should use a new unit and its label should be renamed, but the request does not state whether storage, rounding, exports, and historical values also change.",
+        "observed_behavior": "Changing only the displayed label can leave the shown number and persisted number with incompatible meanings.",
+        "replay_trigger": "Edit a value with a fractional conversion, save it, reopen it, and compare the displayed and persisted values.",
+        "changed_scope": [],
+        "available_evidence": [
+          "The requested label text is known.",
+          "The canonical unit and rounding rule are not specified.",
+          "No migration or compatibility decision is available."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "clarify",
+        "decision": "product-decision-required",
+        "source": "product-decision-required",
+        "minimum_counterexample": "A fractional value round-trips differently depending on whether conversion happens only for display or also for storage.",
+        "rationale": "Unit semantics and naming compatibility are rules to confirm, not implementation facts to guess."
+      }
+    },
+    {
+      "case_id": "replay-005",
+      "category": "realtime-integration",
+      "scenario": {
+        "report": "Live updates can be duplicated or missed after a connection interruption even though local ordered-event tests pass.",
+        "observed_behavior": "A patch deduplicates by an in-memory sequence value, but the external stream's reconnect and replay behavior is not represented locally.",
+        "replay_trigger": "Interrupt the live stream between two updates, reconnect, and observe replayed and newly arriving events.",
+        "changed_scope": [
+          "The subscriber records the last sequence value in memory.",
+          "Local tests emit only ordered events on one uninterrupted connection."
+        ],
+        "available_evidence": [
+          "The existing subscriber contract requires each accepted update to be applied once across reconnects.",
+          "Local unit tests pass for ordered duplicates.",
+          "No captured reconnect trace or integration environment result is available.",
+          "The external stream contract does not guarantee that a new connection continues the prior sequence."
+        ],
+        "runtime_access": true
+      },
+      "expected": {
+        "stage": "runtime",
+        "decision": "runtime-evidence-required",
+        "source": "existing-contract",
+        "minimum_counterexample": "A reconnect restarts sequence values or replays events out of order, causing a valid update to be discarded.",
+        "rationale": "The remaining claim depends on external reconnect behavior and needs integration evidence rather than another local label assertion."
+      }
+    },
+    {
+      "case_id": "replay-006",
+      "category": "canvas-zoom",
+      "scenario": {
+        "report": "Dragging aligns at the default scale but drifts after zooming and panning the drawing surface.",
+        "observed_behavior": "A patch divides pointer coordinates by scale but assumes the surface origin is always zero.",
+        "replay_trigger": "Pan away from the origin, zoom to a non-default scale, and drag an element under the pointer.",
+        "changed_scope": [
+          "Pointer coordinates are divided by the active scale.",
+          "Tests cover two scale values without a translated origin."
+        ],
+        "available_evidence": [
+          "The transform does not subtract the current translation.",
+          "The focused test keeps translation at zero.",
+          "No combined pan-and-zoom assertion is present."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "post-change",
+        "decision": "continue-fixing",
+        "source": "specified",
+        "minimum_counterexample": "A nonzero translation combined with a non-default scale places the dragged element away from the pointer.",
+        "rationale": "Scale-only handling does not prove the full coordinate transform used by the reported interaction."
+      }
+    },
+    {
+      "case_id": "replay-007",
+      "category": "empty-data",
+      "scenario": {
+        "report": "A summary renders an invalid numeric result when its source collection is empty.",
+        "observed_behavior": "The patch returns a neutral empty state before aggregation and preserves the existing calculation for nonempty input.",
+        "replay_trigger": "Load the summary with an empty collection, a missing optional collection, and then a one-item collection.",
+        "changed_scope": [
+          "The aggregation guard handles both an empty collection and a missing optional collection.",
+          "Focused tests cover empty, missing, and one-item inputs."
+        ],
+        "available_evidence": [
+          "The focused tests execute the reported empty path and both adjacent counterexamples.",
+          "The nonempty calculation assertion remains unchanged and passes.",
+          "The rendered empty branch uses the existing neutral-state contract."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "post-change",
+        "decision": "verified",
+        "source": "existing-contract",
+        "minimum_counterexample": "An empty or missing collection reaches the aggregation and produces an invalid result; both inputs are now guarded and tested.",
+        "rationale": "The changed code and focused evidence cover the original path and the smallest adjacent empty-data cases."
+      }
+    },
+    {
+      "case_id": "replay-008",
+      "category": "realtime-integration",
+      "scenario": {
+        "report": "A view must stop its internal listener when it closes. No product-visible behavior is defined for an internal cleanup call that repeats after the listener was already disposed.",
+        "observed_behavior": "The patch treats repeated disposal as a no-op and clears the stored listener handle after the first cleanup.",
+        "replay_trigger": "Replace the listener, invoke cleanup twice, and then emit another update.",
+        "changed_scope": [
+          "Cleanup disposes only the currently stored listener handle and clears it after disposal.",
+          "Focused tests invoke cleanup twice and assert that no listener receives a later update."
+        ],
+        "available_evidence": [
+          "The accepted requirement only says that no listener may remain after the view closes.",
+          "Treating repeated internal cleanup as a no-op is a narrow, reversible implementation assumption that creates no new user-visible policy.",
+          "The focused test passes for one cleanup, repeated cleanup, and a replaced listener."
+        ],
+        "runtime_access": false
+      },
+      "expected": {
+        "stage": "post-change",
+        "decision": "verified",
+        "source": "inferred",
+        "minimum_counterexample": "A second cleanup disposes an already-cleared handle incorrectly or leaves the replacement listener active.",
+        "rationale": "Idempotent repeated cleanup is an explicit narrow implementation assumption, and the changed code plus focused evidence falsify its smallest failure cases."
+      }
+    }
+  ]
+}
