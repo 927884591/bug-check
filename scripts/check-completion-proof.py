@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the installable skill's completion-proof checker from the repo root."""
+"""Run the installable skill's formal proof-report linter from the repo root."""
 
 from __future__ import annotations
 

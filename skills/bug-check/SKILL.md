@@ -1,36 +1,41 @@
 ---
 name: bug-check
-description: Use when fixing, debugging, reviewing, or validating bugs or risky behavior changes and Codex must prove completion from changed code. Run as a pre-final completion proof gate: inspect the diff, state behavior claims, try to falsify them with minimal counterexamples, verify evidence, and continue fixing or report risk before claiming completion.
+description: Use when Codex implements new features or fixes, debugs, reviews, or validates any behavior-changing code and must avoid guessing product decisions and prove completion. Run before editing to classify requirement sources and unresolved decisions, then before completion to inspect impact and diff scope, falsify observable behavior claims with minimal counterexamples, and verify them with executed evidence.
 ---
 
 # Bug Check
 
 ## Purpose
 
-Before claiming a bug fix or risky behavior change is complete, prove the changed behavior from code and executed evidence.
+Prevent two common AI coding failures: implementing an unstated product rule and claiming completion without proving material behavior.
 
 Use the loop:
 
 ```text
-diff -> behavior claim -> smallest counterexample -> code/evidence -> pass/fail
+requirement/contract -> source -> acceptance claim -> impact/diff
+-> smallest counterexample -> executed evidence -> pass/fix/decision needed
 ```
 
-Do not turn this into a checklist report. The useful output is an engineering decision: continue fixing a proof gap, run missing verification, or state the proof and remaining risk.
+Do not turn this into a checklist report. The useful output is one engineering decision: `product-decision-required`, `continue-investigating`, `continue-fixing`, `runtime-evidence-required`, or `verified`.
 
 ## Workflow
 
-1. Get the changed scope from the current diff, staged diff, a base/range diff, or user-provided files. If useful, run `scripts/build-bug-context.py` to collect changed files, diff context, nearby tests, and verification candidates.
-2. If there are no changed files or explicit paths, do not produce a completion proof. Bug text alone can suggest tentative claims and counterexamples, but it cannot prove completion.
-3. Inspect the changed code and state each material behavior claim the fix relies on. A claim must be observable, such as "filtering resets to a valid page" or "403 responses never render success state".
-4. For each claim, name the smallest counterexample that would disprove it. Prefer concrete state transitions, bad inputs, stale async timing, permission failures, empty/null values, reloads, or runtime lifecycle cases.
-5. Check whether the current code handles each counterexample. If a material claim lacks handling or evidence:
+1. Before editing, derive material behavior from the user request and available contracts: current behavior, tests, types, API schemas, designs, or documentation. Give each claim a stable `C1`-style ID and label it `specified`, `existing-contract`, `inferred`, or `product-decision-required` with concrete source evidence as defined in `references/behavior-contract.md`.
+2. Do not silently turn a product suggestion or ambiguous rule into a requirement. If a material `product-decision-required` item blocks correct implementation, ask; otherwise keep it out of scope and report it. State narrow, reversible assumptions explicitly.
+3. Write observable acceptance claims before implementation. Select only material counterexample families for the change, such as empty/error/loading states, permissions, retries, concurrency, reloads, cancellation, idempotency, or lifecycle transitions.
+4. Inspect impact beyond the edited files: callers, consumers, contracts, persistent state, and nearby tests. If useful, run `scripts/build-bug-context.py` to collect a validated changed scope, diff context, nearby tests, and verification candidates.
+5. Implement or review the smallest coherent change, then map every material claim to the resulting diff. If there are no valid changed files or explicit paths, do not produce a completion proof.
+6. For each claim, name the smallest concrete counterexample that would disprove it and inspect whether the code handles it.
+7. Run the narrowest verification that proves the original path and material counterexamples. Record the actual command or runtime check and its result; lint, typecheck, or build alone is insufficient.
+8. If a material claim lacks handling or evidence:
    - For fix, implementation, or continuation work, patch the gap before finishing.
    - For review, audit, or checker work, report the proof gap first and do not patch unless the user asks.
-6. Run the narrowest useful verification for the original path and the material counterexamples. A broad lint/build pass is not enough by itself.
-7. Answer briefly with the root cause, changed files, claims, counterexamples, evidence, checks run, and remaining risks. Use `references/completion-proof.md` only when the user asks for a formal proof report or checker-ready output.
+9. For a pre-change exit, answer with the decision, sourced behavior contract, assumptions, and open product questions. Do not invent a root cause or completion evidence when no implementation exists.
+10. For post-change work, answer with the decision first. Give the root cause for a bug or the change rationale for a new feature, then the changed scope, sourced claims, counterexamples, executed evidence, and remaining risks.
 
 ## Resources
 
-- `scripts/build-bug-context.py`: builds a changed-scope, diff, nearby-test, verification-candidate, and proof-instruction pack.
-- `references/completion-proof.md`: formal proof report contract for explicit audits or checker-ready reports.
-- `scripts/check-completion-proof.py`: optional checker for proof reports.
+- `references/behavior-contract.md`: read before coding when requirements, acceptance behavior, or product ownership are unclear.
+- `scripts/build-bug-context.py`: builds a validated changed-scope, diff, nearby-test, verification-candidate, and proof-instruction pack.
+- `references/completion-proof.md`: read only for explicit formal audits or checker-ready reports.
+- `scripts/check-completion-proof.py`: lints formal report structure and obvious proof gaps; it cannot verify that claimed commands really ran.

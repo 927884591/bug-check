@@ -1,26 +1,27 @@
-Root cause: The filter mutation kept the old page index after a narrower search, so page 3 requested an empty backend page while matching records existed on page 1.
+Decision: verified
+
+Root cause: The filter mutation retained the old page index after a narrower search, so page 3 requested an empty backend page while matching records existed on page 1.
 
 Changed files:
 - src/pages/UserList.tsx
 - src/pages/UserList.test.tsx
 
-Context source: `build-bug-context.py --files src/pages/UserList.tsx src/api/users.ts --bug "filter reset leaves page empty"`
+Context source: `build-bug-context.py --files src/pages/UserList.tsx src/pages/UserList.test.tsx --bug "filter reset leaves page empty"`, followed by manual diff inspection.
 
 Behavior claims:
-- Changing a filter always resets the visible list to a valid page before fetching.
-- A filtered empty response renders the filtered-empty state instead of a stale page result.
+- C1 [source: specified] [source-ref: user request: "Changing a filter resets the visible list to page 1"]: Changing a filter resets the visible list to page 1 before the filtered request is sent.
+- C2: [source: existing-contract] [source-ref: src/pages/UserList.test.tsx: filtered-empty regression] A filtered response with zero records renders the filtered-empty state instead of retaining stale rows.
 
 Counterexamples considered:
-- User starts on page 3, applies a filter that has only one page of results.
-- User applies a filter that returns zero results after previous data was visible.
+- C1: If the user starts on page 3 and applies a filter whose matching records fit on one page, a request for page 3 would disprove the reset claim.
+- C2: Previous rows are visible when the user applies a filter that returns zero records; any retained row or generic page-empty state disproves the rendering claim.
 
 Evidence:
-- Reproduced the page 3 filtered-empty path before the fix.
-- Inspected the page state transition and verified the filter handler resets page to 1 before the request.
-- Added a regression test that asserts page reset and filtered-empty rendering.
+- C1: PASS: Inspection of `src/pages/UserList.tsx` shows the filter handler setting page 1 before constructing the request, and the regression test passed while asserting the request page.
+- C2: PASS: `src/pages/UserList.test.tsx` contains a regression test that seeds prior rows, returns an empty filtered response, and passed while asserting the filtered-empty state with no stale rows.
 
 Checks run:
-- npm test -- UserList.test.tsx
-- npm run lint
+- PASS: `npm test -- UserList.test.tsx` completed with exit code 0 and 2 tests passed.
+- PASS: Manual runtime check applied a one-page filter from page 3 and an empty filter after visible data; both rendered the expected states.
 
 Remaining risks: Cross-page select-all was not exercised because this page does not enable batch selection.

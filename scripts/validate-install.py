@@ -70,6 +70,8 @@ def directory_hash(root: Path) -> str | None:
         relative = path.relative_to(root).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
+        digest.update(b"executable=1" if path.stat().st_mode & 0o111 else b"executable=0")
+        digest.update(b"\0")
         digest.update(path.read_bytes())
         digest.update(b"\0")
     return digest.hexdigest()
@@ -116,13 +118,9 @@ def print_text(source_hash: str | None, targets: list[TargetStatus]) -> None:
 
 
 def exit_code(source_hash: str | None, targets: list[TargetStatus]) -> int:
-    if source_hash is None:
+    if source_hash is None or not targets:
         return 1
-    has_current = any(item.status == "current" for item in targets)
-    has_stale = any(item.status == "stale" for item in targets)
-    if has_current and not has_stale:
-        return 0
-    return 1
+    return 0 if all(item.status == "current" for item in targets) else 1
 
 
 def main() -> int:

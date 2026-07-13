@@ -1,4 +1,4 @@
 interface:
   display_name: "Bug Check"
-  short_description: "Prove bug fixes from diff claims and counterexamples"
-  default_prompt: "Use $bug-check as a completion proof gate: inspect the diff, state behavior claims, test them against minimal counterexamples, and verify evidence before claiming completion."
+  short_description: "Prevent behavior bugs with contracts and proof"
+  default_prompt: "Use $bug-check before and after this behavior-changing implementation to identify unresolved product decisions, challenge observable claims with minimal counterexamples, and verify executed evidence."
